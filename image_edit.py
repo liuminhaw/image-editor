@@ -14,80 +14,29 @@
 #    23 - Fail _proportion_check
 #    25 - Fail _compress_image
 #    27 - Fail _resize_image
+#    29 - Fail _file_verify
 """
 
 import sys, os
 from PIL import Image
 
-import logging_class
+from image_editor_pkg import logging_class
+from image_editor_pkg import block_class as blkcl
 
 
 FILETYPE = ('.jpg', '.jpeg', '.png')
 
-logger = logging_class.PersonalLog('image_modify')
-
-
-class BlockType():
-
-    def __init__(self,path):
-        self.abs = os.path.abspath(path)
-        self.dir = os.path.abspath(path)
-
-    def dir_exist(self):
-        return os.path.isdir(self.dir)
-
-
-class Directory(BlockType):
-
-    def __init__(self, path):
-        BlockType.__init__(self, path)
-
-        self.base = os.path.basename(self.abs)
-
-    def iterate_files(self):
-        """
-        Iterates through files in the directory
-
-        Return:
-            A File class object
-        """
-        for file in os.listdir(self.dir):
-            filepath = os.path.join(self.dir, file)
-            yield File(filepath)
-
-
-class File(BlockType):
-
-    def __init__(self, path):
-        BlockType.__init__(self, path)
-
-        self.dir = os.path.dirname(self.abs)
-        self.base = os.path.basename(self.abs)
-        self.file_name = os.path.splitext(self.base)[0]
-        self.file_extension = os.path.splitext(self.base)[1]
-
-    def file_exist(self):
-        return os.path.isfile(self.abs)
-
-    def format_check(self, formats):
-        """
-        Compare file format to formats
-
-        Input:
-            formats - tuple of file formats
-        """
-        return self.file_extension.lower() in formats
-
+logger = logging_class.PersonalLog('image_editor')
 
 
 def main():
     message = \
     """
     USAGE:
-        image_modify compress INPUTFILE OUTPUTFILE [QUALITY]
-        image_modify resize INPUTFILE OUTPUTFILE [PROPORTION]
-        image_modify dir-compress INPUTDIR OUTPUTDIR [QUALITY]
-        image_modify dir-resize INPUTDIR OUTPUTDIR [PROPORTION]
+        image_edit.py compress INPUTFILE OUTPUTFILE [QUALITY]
+        image_edit.py resize INPUTFILE OUTPUTFILE [PROPORTION]
+        image_edit.py dir-compress INPUTDIR OUTPUTDIR [QUALITY]
+        image_edit.py dir-resize INPUTDIR OUTPUTDIR [PROPORTION]
     """
     if len(sys.argv) == 1:
         print(message)
@@ -108,7 +57,7 @@ def image_compress():
     message = \
     """
     USAGE:
-        image_modify compress INPUTFILE OUTPUTFILE [QUALITY]
+        image_edit.py compress INPUTFILE OUTPUTFILE [QUALITY]
     NOTE:
         QUALITY should be between 1 to 95
         Default value is 75 if not specified
@@ -123,6 +72,9 @@ def image_compress():
 
     # Test if image is jpg file
     _file_format_check(input_file, FILETYPE)
+
+    # Verify image file not corrupted
+    _file_verify(input_file)
 
     # Test if output directory exist
     _directory_exist_check(output_file)
@@ -139,20 +91,23 @@ def image_resize():
     message = \
     """
     USAGE:
-        image_modify resize INPUTFILE OUTPUTFILE [PROPORTION]
+        image_edit.py resize INPUTFILE OUTPUTFILE [PROPORTION]
     NOTE:
         PROPORTION will devide the origin image width and height by the value
         Default value for PROPORTION is 2 if not specified
     """
 
     # Input validation
-    input_file, output_file = _input_check(message)
+    input_file, output_file = _input_check(message, file=True)
 
     # Test input file
     _file_exist_check(input_file)
 
     # Test file format
     _file_format_check(input_file, FILETYPE)
+
+    # Verify image file not corrupted
+    _file_verify(input_file)
 
     # Test output directory
     _directory_exist_check(output_file)
@@ -168,7 +123,7 @@ def image_dir_compress():
     message = \
     """
     USAGE:
-        image_modify dir-compress INPUTDIR OUTPUTDIR [QUALITY]
+        image_edit.py dir-compress INPUTDIR OUTPUTDIR [QUALITY]
     NOTE:
         QUALITY should be between 1 to 95
         Default value of QUALITY is 75 if not specified
@@ -196,12 +151,15 @@ def image_dir_compress():
 
         # Define output file
         new_filename = file_object.file_name + '-Compressed' + file_object.file_extension
-        output_file = File(os.path.join(output_dir.dir, new_filename))
+        output_file = blkcl.File(os.path.join(output_dir.dir, new_filename))
 
         # Check output_file existence
         if output_file.file_exist():
             logger.info('Skip file {} that already exist.'.format(output_file.abs))
             continue
+
+        # Verify image file not corrupted
+        _file_verify(file_object)
 
         # Compress
         _compress_image(file_object, output_file, compress_quality)
@@ -211,7 +169,7 @@ def image_dir_resize():
     message = \
     """
     USAGE:
-        image_modify dir-resize INPUTDIR OUTPUTDIR [PROPORTION]
+        image_edit.py dir-resize INPUTDIR OUTPUTDIR [PROPORTION]
     NOTE:
         PROPORTION will divide the origin image width and height by the value
         Default value for PROPORTION is 2 if not specified
@@ -238,12 +196,15 @@ def image_dir_resize():
 
         # Define output file
         new_filename = file_object.file_name + '-Resized' + file_object.file_extension
-        output_file = File(os.path.join(output_dir.dir, new_filename))
+        output_file = blkcl.File(os.path.join(output_dir.dir, new_filename))
 
         # Check output_file existence
         if output_file.file_exist():
             logger.info('Skip file {} that already exist.'.format(output_file.abs))
             continue
+
+        # Verify image file not corrupted
+        _file_verify(file_object)
 
         # Resize
         _resize_image(file_object, output_file, proportion)
@@ -260,11 +221,11 @@ def _input_check(message, file=True):
 
     try:
         if file:
-            input = File(sys.argv[2])
-            output = File(sys.argv[3])
+            input = blkcl.File(sys.argv[2])
+            output = blkcl.File(sys.argv[3])
         else:
-            input = Directory(sys.argv[2])
-            output = Directory(sys.argv[3])
+            input = blkcl.Directory(sys.argv[2])
+            output = blkcl.Directory(sys.argv[3])
     except IndexError:
         print(message)
         sys.exit(13)
@@ -310,6 +271,22 @@ def _file_format_check(file, formats):
     if not file.format_check(formats):
         logger.warning('Source file format not in {}.'.format(' '.join(formats)))
         sys.exit(17)
+
+
+def _file_verify(file):
+    """
+    Check input file image not corrupted
+
+    Input:
+        file - File class object
+    """
+
+    try:
+        with Image.open(file.abs) as image_file:
+            image_file.verify()
+    except:
+        logger.warning('Image {} corrupted.'.format(file.abs))
+        sys.exit(29)
 
 
 def _quality_check():

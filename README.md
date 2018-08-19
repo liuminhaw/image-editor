@@ -1,7 +1,7 @@
 # image_edit
 #### Edit single image or bunch of images at once
 
-### Version 0.1
+### Version 0.1.0
 
 ##### Options
 - compress
